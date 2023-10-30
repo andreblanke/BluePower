@@ -17,42 +17,48 @@
 
 package com.bluepowermod.world;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
+import com.github.bsideup.jabel.Desugar;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 import net.minecraft.world.gen.feature.WorldGenMinable;
 
-@SuppressWarnings({ "unchecked", "rawtypes" })
-public class WorldGenMarble extends WorldGenMinable {
+public final class WorldGenMarble extends WorldGenMinable {
 
-    LinkedList marbleVein = new LinkedList();
-    HashSet    veinsList  = new HashSet();
-    Block block;
-    int   numberOfBlocks;
+    private int numberOfBlocks;
+
+    private final LinkedList<MarbleVein> marbleVeins = new LinkedList<>();
+    private final Set<MarbleVeinCandidate> marbleVeinCandidates = new HashSet<>();
+    private final Block block;
 
     public WorldGenMarble(Block block, int num) {
-
         super(block, num);
+
         this.block = block;
         this.numberOfBlocks = num;
     }
 
     private void addBlock(int x, int y, int z, int num) {
+        final var marbleCandidate = new MarbleVeinCandidate(x, y, z);
+        if (marbleVeinCandidates.contains(marbleCandidate))
+            return;
 
-        List marbleCandidate = Arrays.asList(x, y, z);
-        if (this.veinsList.contains(marbleCandidate)) return;
-        this.marbleVein.addLast(Arrays.asList(x, y, z, num));
-        this.veinsList.add(marbleCandidate);
+        marbleVeins.add(new MarbleVein(x, y, z, num));
+        marbleVeinCandidates.add(marbleCandidate);
     }
 
-    private void searchBlock(World world, int x, int y, int z, int num) {
+    @Desugar
+    record MarbleVeinCandidate(int x, int y, int z) { }
 
+    @Desugar
+    record MarbleVein(int x, int y, int z, int num) { }
+
+    private void searchBlock(World world, int x, int y, int z, int num) {
         if (world.isAirBlock(x - 1, y, z) || world.isAirBlock(x + 1, y, z) || world.isAirBlock(x, y - 1, z) || world.isAirBlock(x, y + 1, z)
                 || world.isAirBlock(x, y, z - 1) || world.isAirBlock(x, y, z + 1)) {
             num = 6;
@@ -67,10 +73,8 @@ public class WorldGenMarble extends WorldGenMinable {
 
     @Override
     public boolean generate(World world, Random random, int x, int y, int z) {
-
-        if (!world.blockExists(x, y, z)) {
+        if (!world.blockExists(x, y, z))
             return false;
-        }
 
         int i = y;
         while (world.getBlock(x, i, z) != Blocks.stone) {
@@ -78,15 +82,13 @@ public class WorldGenMarble extends WorldGenMinable {
             i++;
             addBlock(x, i, z, 6);
         }
-        while ((this.marbleVein.size() > 0) && (this.numberOfBlocks > 0)) {
-            List blocksToGenerate = (List) this.marbleVein.removeFirst();
-            Integer[] blockToSet = (Integer[]) blocksToGenerate.toArray();
-            if (world.getBlock(blockToSet[0], blockToSet[1], blockToSet[2]) == Blocks.stone) {
-                world.setBlock(blockToSet[0], blockToSet[1], blockToSet[2], this.block);
-                if (blockToSet[3] > 0) {
-                    searchBlock(world, blockToSet[0], blockToSet[1], blockToSet[2], blockToSet[3] - 1);
-                }
-                this.numberOfBlocks -= 1;
+        while (!marbleVeins.isEmpty() && (numberOfBlocks > 0)) {
+            final var marbleVein = marbleVeins.removeFirst();
+            if (world.getBlock(marbleVein.x(), marbleVein.y(), marbleVein.z()) == Blocks.stone) {
+                world.setBlock(marbleVein.x(), marbleVein.y(), marbleVein.z(), block);
+                if (marbleVein.num() > 0)
+                    searchBlock(world, marbleVein.x(), marbleVein.y(), marbleVein.z(), marbleVein.num() - 1);
+                --numberOfBlocks;
             }
         }
         return true;
