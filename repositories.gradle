@@ -1,0 +1,6 @@
+repositories {
+    maven {
+        name 'OpenComputers'
+        url = "https://maven.cil.li/"
+    }
+}
