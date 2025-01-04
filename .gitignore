@@ -2,6 +2,7 @@
 /.gradle
 /build
 /gradle
+/run
 
 ## Other
 /dep
